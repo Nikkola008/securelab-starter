@@ -58,4 +58,46 @@ public sealed class IncidentQueries(SecureLabDbContext dbContext, ILogger<Incide
                     .ToList()))
             .SingleOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<IncidentSeveritySummaryResponse>> GetSeveritySummaryAsync(
+        CancellationToken cancellationToken)
+    {
+        var existingGroups = await dbContext.Incidents
+            .AsNoTracking()
+            .GroupBy(incident => incident.Severity)
+            .Select(group => new IncidentSeveritySummaryResponse(
+                group.Key.ToString(),
+                group.Count()))
+            .ToListAsync(cancellationToken);
+
+        var countsBySeverity = existingGroups
+            .ToDictionary(item => item.Severity, item => item.Count);
+
+        var allLevels = Enum.GetValues<IncidentSeverity>();
+
+        var completeSummary = allLevels
+            .Select(level => new IncidentSeveritySummaryResponse(
+                level.ToString(),
+                countsBySeverity.GetValueOrDefault(level.ToString(), 0)))
+            .ToList();
+
+        var orderedSummary = completeSummary
+            .OrderBy(item => GetSeverityRank(item.Severity))
+            .ToList();
+
+        logger.LogInformation(
+            "Severity summary generated with {GroupCount} severity levels",
+            orderedSummary.Count);
+
+        return orderedSummary;
+    }
+
+    private static int GetSeverityRank(string severity) => severity switch
+    {
+        nameof(IncidentSeverity.Critical) => 0,
+        nameof(IncidentSeverity.High) => 1,
+        nameof(IncidentSeverity.Medium) => 2,
+        nameof(IncidentSeverity.Low) => 3,
+        _ => int.MaxValue,
+    };
 }

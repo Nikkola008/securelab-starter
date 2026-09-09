@@ -25,6 +25,6 @@ Accept: application/json
 GET {{host}}/api/incidents?status=Unknown
 Accept: application/json
 
-### Lab 1 extension point: expected 501 before student implementation
+### Severity summary: expected 200 OK with ordered severity list (Critical -> High -> Medium -> Low)
 GET {{host}}/api/incidents/severity-summary
 Accept: application/json
