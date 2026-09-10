@@ -11,7 +11,8 @@ public static class IncidentEndpoints
         var group = endpoints.MapGroup("/api/incidents");
 
         group.MapGet("/", GetListAsync)
-            .Produces<IReadOnlyList<IncidentListItemResponse>>(StatusCodes.Status200OK);
+            .Produces<IReadOnlyList<IncidentListItemResponse>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest);
 
         group.MapGet("/{id:guid}", GetDetailsAsync)
             .Produces<IncidentDetailsResponse>(StatusCodes.Status200OK)
@@ -24,11 +25,29 @@ public static class IncidentEndpoints
     }
 
     private static async Task<IResult> GetListAsync(
-        IncidentStatus? status,
+        string? status,
         IncidentQueries incidentQueries,
         CancellationToken cancellationToken)
     {
-        var incidents = await incidentQueries.GetListAsync(status, cancellationToken);
+        IncidentStatus? parsedStatus = null;
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<IncidentStatus>(status, ignoreCase: true, out var result))
+            {
+                return Results.ValidationProblem(
+                    errors: new Dictionary<string, string[]>
+                    {
+                        { "status", [$"The status '{status}' is invalid."] }
+                    },
+                    title: "One or more validation errors occurred.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            parsedStatus = result;
+        }
+
+        var incidents = await incidentQueries.GetListAsync(parsedStatus, cancellationToken);
         return Results.Ok(incidents);
     }
 

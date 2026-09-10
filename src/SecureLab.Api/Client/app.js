@@ -108,12 +108,15 @@ async function loadIncidentDetails(id) {
 }
 
 async function loadSeveritySummary() {
+  // 1. Стан завантаження (Loading State)
   summaryStatusElement.textContent = "Завантаження…";
   summaryListElement.replaceChildren();
 
   try {
+    // 2. Network request (виклики fetch API через apiFetch)
     const summary = await apiFetch("/api/incidents/severity-summary");
 
+    // 3. Обробка порожнього результату (Empty State)
     if (summary.length === 0) {
       summaryStatusElement.textContent = "Даних немає";
       return;
@@ -126,6 +129,7 @@ async function loadSeveritySummary() {
       summaryListElement.append(li);
     }
   } catch (error) {
+    // 4. Стан безпечної помилки (Error State) — виводиться зрозуміле повідомлення без витоку стек-трейсу
     summaryStatusElement.textContent = "Не вдалося завантажити підсумок";
   }
 }

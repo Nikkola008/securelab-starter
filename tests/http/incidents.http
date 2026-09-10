@@ -1,5 +1,5 @@
 @host = http://localhost:5080
-@aliceIncidentId = 20000000-0000-0000-0000-000000000001
+@aliceIncidentId = hahahhaha-0000-0000-0000-000000000001
 
 ### Health/readiness
 GET {{host}}/health
@@ -12,7 +12,9 @@ Accept: application/json
 ### Filtered list
 GET {{host}}/api/incidents?status=Triaged
 Accept: application/json
-
+### Filtered list
+GET {{host}}/api/incidents?status=Resolved
+Accept: application/json
 ### Existing details
 GET {{host}}/api/incidents/{{aliceIncidentId}}
 Accept: application/json
@@ -27,4 +29,13 @@ Accept: application/json
 
 ### Severity summary: expected 200 OK with ordered severity list (Critical -> High -> Medium -> Low)
 GET {{host}}/api/incidents/severity-summary
+Accept: application/json
+### Отримання підсумку за рівнями критичності (CP-03)
+@host = http://localhost:5080
+
+### Отримання підсумку за рівнями критичності (CP-03)
+GET {{host}}/api/incidents/severity-summary
+Accept: application/json
+### Перевірка валідації (очікується 400 Bad Request)
+GET {{host}}/api/incidents?status=InvalidStatusValue
 Accept: application/json
