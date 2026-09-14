@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using SecureLab.Api.Application.Incidents;
 using SecureLab.Api.Data.Entities;
 using SecureLab.Api.Presentation.Contracts;
@@ -6,65 +7,54 @@ namespace SecureLab.Api.Presentation.Endpoints;
 
 public static class IncidentEndpoints
 {
-    public static IEndpointRouteBuilder MapIncidentEndpoints(this IEndpointRouteBuilder endpoints)
+    public static RouteGroupBuilder MapIncidentEndpoints(this IEndpointRouteBuilder routes)
     {
-        var group = endpoints.MapGroup("/api/incidents");
+        var group = routes.MapGroup("/api/incidents");
 
+        // 1. Отримання списку інцидентів з можливістю фільтрації за status
         group.MapGet("/", GetListAsync)
             .Produces<IReadOnlyList<IncidentListItemResponse>>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest);
 
+        // 2. Отримання деталей інциденту за GUID
         group.MapGet("/{id:guid}", GetDetailsAsync)
             .Produces<IncidentDetailsResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // 3. Отримання підсумку за severity з підтримкою фільтру status (Добрий рівень)
         group.MapGet("/severity-summary", GetSeveritySummaryAsync)
-            .Produces<IReadOnlyList<IncidentSeveritySummaryResponse>>(StatusCodes.Status200OK);
+            .Produces<IReadOnlyList<IncidentSeveritySummaryResponse>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest);
 
-        return endpoints;
+        return group;
     }
 
     private static async Task<IResult> GetListAsync(
-        string? status,
+        [FromQuery] IncidentStatus? status,
         IncidentQueries incidentQueries,
         CancellationToken cancellationToken)
     {
-        IncidentStatus? parsedStatus = null;
-
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            if (!Enum.TryParse<IncidentStatus>(status, ignoreCase: true, out var result))
-            {
-                return Results.ValidationProblem(
-                    errors: new Dictionary<string, string[]>
-                    {
-                        { "status", [$"The status '{status}' is invalid."] }
-                    },
-                    title: "One or more validation errors occurred.",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
-
-            parsedStatus = result;
-        }
-
-        var incidents = await incidentQueries.GetListAsync(parsedStatus, cancellationToken);
+        var incidents = await incidentQueries.GetListAsync(status, cancellationToken);
         return Results.Ok(incidents);
     }
 
     private static async Task<IResult> GetDetailsAsync(
-        Guid id,
+        [FromRoute] Guid id,
         IncidentQueries incidentQueries,
         CancellationToken cancellationToken)
     {
         var incident = await incidentQueries.GetDetailsAsync(id, cancellationToken);
-        return incident is not null ? Results.Ok(incident) : Results.NotFound();
+        return incident is not null
+            ? Results.Ok(incident)
+            : Results.NotFound();
     }
 
     private static async Task<IResult> GetSeveritySummaryAsync(
+        [FromQuery] IncidentStatus? status,
         IncidentQueries incidentQueries,
         CancellationToken cancellationToken)
     {
-        var summary = await incidentQueries.GetSeveritySummaryAsync(cancellationToken);
+        var summary = await incidentQueries.GetSeveritySummaryAsync(status, cancellationToken);
         return Results.Ok(summary);
     }
 }

@@ -7,6 +7,7 @@ namespace SecureLab.Api.Application.Incidents;
 
 public sealed class IncidentQueries(SecureLabDbContext dbContext, ILogger<IncidentQueries> logger)
 {
+    // 1. Метод для списку інцидентів
     public async Task<IReadOnlyList<IncidentListItemResponse>> GetListAsync(
         IncidentStatus? status,
         CancellationToken cancellationToken)
@@ -31,6 +32,7 @@ public sealed class IncidentQueries(SecureLabDbContext dbContext, ILogger<Incide
             .ToListAsync(cancellationToken);
     }
 
+    // 2. Метод для деталей інциденту
     public Task<IncidentDetailsResponse?> GetDetailsAsync(Guid id, CancellationToken cancellationToken)
     {
         logger.LogInformation("Loading incident {IncidentId}", id);
@@ -59,11 +61,22 @@ public sealed class IncidentQueries(SecureLabDbContext dbContext, ILogger<Incide
             .SingleOrDefaultAsync(cancellationToken);
     }
 
+    // 3. Метод для підсумку за severity з підтримкою фільтру status (ДЛЯ ДОБРОГО РІВНЯ)
     public async Task<IReadOnlyList<IncidentSeveritySummaryResponse>> GetSeveritySummaryAsync(
+        IncidentStatus? status, // <--- 1. ДОДАЛИ ПАРАМЕТР
         CancellationToken cancellationToken)
     {
-        var existingGroups = await dbContext.Incidents
-            .AsNoTracking()
+        logger.LogInformation("Generating severity summary with status filter {Status}", status);
+
+        var query = dbContext.Incidents.AsNoTracking();
+
+        // 2. ДОДАЛИ ФІЛЬТРАЦІЮ ПЕРЕД ГРУПУВАННЯМ
+        if (status is not null)
+        {
+            query = query.Where(incident => incident.Status == status);
+        }
+
+        var existingGroups = await query
             .GroupBy(incident => incident.Severity)
             .Select(group => new IncidentSeveritySummaryResponse(
                 group.Key.ToString(),

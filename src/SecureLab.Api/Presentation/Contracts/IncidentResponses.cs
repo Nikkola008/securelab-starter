@@ -7,7 +7,7 @@ public sealed record IncidentListItemResponse(
     string Status,
     DateTimeOffset OccurredAtUtc,
     DateTimeOffset CreatedAtUtc);
-
+    
 public sealed record IncidentDetailsResponse(
     Guid Id,
     string Title,
