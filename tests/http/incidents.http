@@ -39,3 +39,74 @@ Accept: application/json
 ### Перевірка валідації (очікується 400 Bad Request)
 GET {{host}}/api/incidents?status=InvalidStatusValue
 Accept: application/json
+
+### POST: severity "7" має повернути 400 application/problem+json
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "Перевірка некоректного severity",
+  "description": "Коректний опис для перевірки рівня небезпеки.",
+  "severity": "7",
+  "occurredAtUtc": "2026-08-10T10:00:00Z"
+}
+
+### POST: відсутній occurredAtUtc — очікується 400
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "Перевірка обов’язкової дати",
+  "description": "Коректний опис для перевірки обов’язкової дати.",
+  "severity": "Low"
+}
+
+### POST: дата далеко в майбутньому — очікується 400
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "Перевірка майбутньої дати",
+  "description": "Коректний опис для перевірки майбутньої дати.",
+  "severity": "Low",
+  "occurredAtUtc": "2030-01-01T00:00:00Z"
+}
+
+### POST: High і 39 символів після Trim — очікується 400
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "High з коротким описом",
+  "description": "  123456789012345678901234567890123456789  ",
+  "severity": "High",
+  "occurredAtUtc": "2026-08-10T10:00:00Z"
+}
+
+### POST: High і рівно 40 символів після Trim — очікується 201
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "High з описом у сорок символів",
+  "description": "  1234567890123456789012345678901234567890  ",
+  "severity": "High",
+  "occurredAtUtc": "2026-08-10T10:00:00Z"
+}
+
+### POST: seed має такий самий title у Triaged — очікується 409
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "  Підозрілий лист із вкладенням  ",
+  "description": "Повторна спроба створити інцидент із наявною активною назвою.",
+  "severity": "Medium",
+  "occurredAtUtc": "2026-08-10T10:00:00Z"
+}

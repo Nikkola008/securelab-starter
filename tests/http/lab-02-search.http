@@ -1,5 +1,15 @@
 @baseUrl = http://localhost:5080
-### Звичайний пошук
-GET {{baseUrl}}/api/incidents/search?q=навчальн
-### Легітимний апостроф
-GET {{baseUrl}}/api/incidents/search?q=O%27Brien
+
+### Етап 3: звичайний пошук на vulnerable commit — зафіксувати status і кількість записів
+GET {{baseUrl}}/api/incidents/search?q=USB
+Accept: application/json
+
+### Етап 3: єдиний контрольний read-only сценарій — очікується небажане розширення вибірки
+### q = zz-no-match' OR TRUE -- [trailing space]
+GET {{baseUrl}}/api/incidents/search?q=zz-no-match%27%20OR%20TRUE%20--%20
+Accept: application/json
+
+### Регресія для етапу 4: апостроф U+0027 у слові "комп'ютерного"
+### На vulnerable commit цей запит демонструє defect; після fix має повернути відповідний seed-запис.
+GET {{baseUrl}}/api/incidents/search?q=%D0%BA%D0%BE%D0%BC%D0%BF%27%D1%8E%D1%82%D0%B5%D1%80%D0%BD%D0%BE%D0%B3%D0%BE
+Accept: application/json
