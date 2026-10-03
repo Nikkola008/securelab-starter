@@ -4,7 +4,7 @@
 
 - **Supplied release:** `lab-02-start-v1` (див. `.scaffolds/lab-02.json`).
 - **База гілки:** тег `v0.1.0`.
-- **Vulnerable commit:** _вписати hash після commit етапу 3_.
+- **Vulnerable commit:** `e4201b016067bb112ffd889ac82ee61e14af71fe`.
 - **Security diff:** server-side validation `POST /api/incidents`, контракт `CreatedIncidentResponse`, сценарії створення та дослідження пошуку. Виправлення search у цей commit не входить.
 
 ## Root cause
@@ -29,8 +29,18 @@
 | Дія | `GET /api/incidents/search?q=USB` | `GET /api/incidents/search?q=zz-no-match%27%20OR%20TRUE%20--%20` | `GET /api/incidents/search?q=комп%27ютерного` |
 | Назва сценарію | `NormalSearch_Usb` | `ReadOnlyControl_ZzNoMatchOrTrue` | `ApostropheRegression_Kompiuternoho` |
 | Очікування без defect | Повертаються тільки записи, які містять USB | Не повертаються записи, що не відповідають `zz-no-match` | Повертаються лише записи зі збігом для слова з U+0027 |
-| Фактичний status | _вписати_ | _вписати_ | _вписати_ |
-| Фактична кількість/ідентифікатори artificial records | _вписати_ | _вписати_ | _вписати_ |
-| Пояснення | _вписати_ | Символ `'` завершує SQL-рядок; `OR TRUE` інтерпретується як SQL-структура, а `--` коментує залишок запиту. | _вписати_ |
+| Фактичний status | `200 OK` | `200 OK` | _ще не зафіксовано вручну на vulnerable commit_ |
+| Фактична кількість/ідентифікатори artificial records | `1`: `20000000-0000-0000-0000-000000000005` — «Перевірка USB навчальної мережі» | `5`: `20000000-0000-0000-0000-000000000001` … `20000000-0000-0000-0000-000000000005` | _ще не зафіксовано вручну на vulnerable commit_ |
+| Пояснення | Нормальний збіг повернув лише USB seed-запис. | Символ `'` завершує SQL-рядок; `OR TRUE` інтерпретується як SQL-структура, а `--` коментує залишок запиту. | Потрібно виконати один ручний запит до fix та записати фактичну відповідь. |
 
 Не виконувати інші payload або SQL statements. Якщо результат контрольного сценарію відрізняється від очікуваного, зупинитися та перевірити commit, reset, seed і код.
+
+## Етап 4 — реалізоване виправлення
+
+- Пошук більше не формує SQL-текст через конкатенацію і не використовує `FromSqlRaw`.
+- LINQ з `EF.Functions.ILike` передає search pattern як параметр EF Core.
+- Метасимволи LIKE `%`, `_` та `\\` екрануються: `q=%25` шукає буквальний символ `%`, а не wildcard.
+- `sortBy` має allowlist: `createdAtUtc`, `severity`, `status`; інше значення повертає `400 application/problem+json` з ключем `errors.sortBy`.
+- Ручні сценарії та `SearchMechanicsTests` перевіряють normal search, контрольний input, легітимний U+0027 апостроф і невалідний `sortBy`.
+
+Після запуску regression tests та `lab-02-search.http` вписати фактичні результати після fix окремо у звіт; не перезаписувати спостереження vulnerable commit.

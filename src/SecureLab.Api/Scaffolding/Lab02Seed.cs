@@ -6,6 +6,11 @@ namespace SecureLab.Api.Scaffolding;
 
 public static class Lab02Seed
 {
+    public static readonly Guid ComputerClassroomIncidentId =
+        Guid.Parse("20000000-0000-0000-0000-000000000003");
+    public static readonly Guid UsbIncidentId =
+        Guid.Parse("20000000-0000-0000-0000-000000000005");
+
     public static async Task EnsureAsync(IServiceProvider services)
     {
         await using var scope = services.CreateAsyncScope();

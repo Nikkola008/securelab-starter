@@ -1,105 +1,296 @@
 @host = http://localhost:5080
-@aliceIncidentId = hahahhaha-0000-0000-0000-000000000001
+@aliceIncidentId = 20000000-0000-0000-0000-000000000001
 
-### Health/readiness
+
+# =====================================================================
+# ЛР 02 · SecureLab · єдиний файл ручних сценаріїв
+#
+# Структура:
+# BASELINE -> T-01 .. T-10 -> S-01/S-02 -> A-01 -> A-02
+#
+# Передумови:
+# local Development, контейнер PostgreSQL, --reset-database.
+#
+# [СТВОРЮЄ] — запит створює запис;
+# перед повторним запуском бажано виконати --reset-database.
+#
+# [VULN]  — виконується на vulnerable commit.
+# [FIXED] — виконується на fixed commit.
+#
+# У колонку "Фактично" звіту вносити лише реально отримані результати.
+#
+# Відповідність автотестам:
+#
+# T-01
+#   Create_HighWith40CharactersAfterTrim_Returns201AndUsesServerFields
+#
+# T-02
+#   Create_WithMissingRequiredFields_Returns400ProblemDetails
+#   Create_WithNumericSeverity_Returns400ProblemDetails
+#   Create_WithCombinedSeverityNames_Returns400ProblemDetails
+#   Create_WithTitleLongerThan160Characters_Returns400
+#   Create_WithDescriptionLongerThan4000Characters_Returns400
+#   Create_WithoutOccurredAtUtc_Returns400ProblemDetails
+#   Create_WithDateMoreThanFiveMinutesInFuture_Returns400
+#   Create_WithNonUtcOffset_NormalizesOccurredAtUtcToUtc
+#
+# T-03
+#   Create_WithTrimmedTitleMatchingActiveSeedIncident_Returns409ProblemDetails
+#   Create_WithSameGeneratedTitle_Returns201Then409
+#   Create_WithTitleMatchingEachBlockingStatus_Returns409
+#   Create_WithTitleMatchingClosedIncident_Returns201
+#   Create_WithTitleDifferingOnlyByCase_Returns201
+#
+# T-04 / Search
+#   Search_WithNormalUsbQuery_ReturnsOnlyUsbSeedIncident
+#   Search_WithLegitimateApostrophe_ReturnsMatchingSeedIncident
+#   Search_WithPercentSign_SearchesForLiteralPercentAndReturnsNoMatches
+#   Search_WithoutSortBy_OrdersByCreatedAtUtcDescendingThenId
+#   Search_WithSeveritySort_OrdersByBusinessRankThenId
+#   Search_WithStatusSort_OrdersByBusinessRankThenId
+#
+# T-05
+#   Search_WithUnsupportedSortBy_Returns400ProblemDetails
+#
+# T-06
+#   GetDetails_ForUnknownId_ReturnsProblemDetails404
+#
+# T-09
+#   Create_HighWith39CharactersAfterTrim_Returns400
+#   Create_HighWith40CharactersAfterTrim_Returns201AndUsesServerFields
+#
+# T-10
+#   Create_WhenDescriptionEqualsTitleAfterTrim_Returns400
+#   Create_WhenDescriptionAddsDetails_Returns201
+#
+# S-02
+#   Search_WithControlledReadOnlyInput_ReturnsNoMatches
+#
+# A-02
+#   Create_IgnoresClientSuppliedServerManagedFields
+# =====================================================================
+
+
+
+# =====================================================================
+# BASELINE
+# Початкові endpoint-и
+# =====================================================================
+
+### BASELINE health/readiness — 200
 GET {{host}}/health
 Accept: application/json
 
-### Working list flow
+
+### BASELINE список інцидентів — 200
 GET {{host}}/api/incidents
 Accept: application/json
 
-### Filtered list
+
+### BASELINE status=Triaged — 200
 GET {{host}}/api/incidents?status=Triaged
 Accept: application/json
-### Filtered list
+
+
+### BASELINE status=Resolved — 200
 GET {{host}}/api/incidents?status=Resolved
 Accept: application/json
-### Existing details
+
+
+### BASELINE деталі наявного інциденту — 200
 GET {{host}}/api/incidents/{{aliceIncidentId}}
 Accept: application/json
 
-### Missing resource: expected 404 Problem Details
-GET {{host}}/api/incidents/99999999-9999-9999-9999-999999999999
-Accept: application/json
 
-### Invalid filter: expected 400 Validation Problem Details
+### BASELINE невідомий status — 400 Validation Problem Details
 GET {{host}}/api/incidents?status=Unknown
-Accept: application/json
-
-### Severity summary: expected 200 OK with ordered severity list (Critical -> High -> Medium -> Low)
-GET {{host}}/api/incidents/severity-summary
-Accept: application/json
-### Отримання підсумку за рівнями критичності (CP-03)
-@host = http://localhost:5080
-
-### Отримання підсумку за рівнями критичності (CP-03)
-GET {{host}}/api/incidents/severity-summary
-Accept: application/json
-### Перевірка валідації (очікується 400 Bad Request)
-GET {{host}}/api/incidents?status=InvalidStatusValue
-Accept: application/json
-
-### POST: severity "7" має повернути 400 application/problem+json
-POST {{host}}/api/incidents
-Content-Type: application/json
 Accept: application/problem+json
 
+
+### BASELINE severity-summary — 200
+### Очікуваний порядок: Critical -> High -> Medium -> Low
+GET {{host}}/api/incidents/severity-summary
+Accept: application/json
+
+
+
+# =====================================================================
+# T-01
+# Коректне створення
+# =====================================================================
+
+### T-01 коректний POST — 201 [СТВОРЮЄ]
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
 {
-  "title": "Перевірка некоректного severity",
-  "description": "Коректний опис для перевірки рівня небезпеки.",
-  "severity": "7",
-  "occurredAtUtc": "2026-08-10T10:00:00Z"
+  "title": "T-01 коректне створення",
+  "description": "Коректний опис, який додає інформацію понад заголовок.",
+  "severity": "Medium",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
 }
 
-### POST: відсутній occurredAtUtc — очікується 400
+
+### T-01 Trim title — 201 [СТВОРЮЄ]
+### У відповіді title має бути без зовнішніх пробілів.
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "  T-01 перевірка Trim для title  ",
+  "description": "Опис для перевірки нормалізації значення title після Trim.",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-01 UTC normalization — 201 [СТВОРЮЄ]
+### 13:00 +03:00 має відповідати 10:00Z.
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "T-01 перевірка UTC normalization",
+  "description": "Опис для перевірки нормалізації часового зміщення до UTC.",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T13:00:00+03:00"
+}
+
+
+
+# =====================================================================
+# T-02
+# Некоректний DTO
+#
+# Очікується:
+# 400 application/problem+json
+# та errors для відповідного поля.
+# =====================================================================
+
+### T-02 title відсутній — errors.title
 POST {{host}}/api/incidents
 Content-Type: application/json
 Accept: application/problem+json
 
 {
-  "title": "Перевірка обов’язкової дати",
+  "description": "Коректний опис для перевірки обов’язкового title.",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-02 description відсутній — errors.description
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "T-02 без description",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-02 severity відсутній — errors.severity
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "T-02 без severity",
+  "description": "Коректний опис для перевірки обов’язкового severity.",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-02 severity "7" — errors.severity
+### Enum.TryParse може прийняти число,
+### але Enum.IsDefined повинен його відхилити.
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "T-02 severity 7",
+  "description": "Коректний опис для перевірки числового severity.",
+  "severity": "7",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-02 combined severity — errors.severity
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "T-02 combined severity",
+  "description": "Коректний опис для перевірки комбінованого severity.",
+  "severity": "Low,High",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-02 title із 161 символу — errors.title
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789X",
+  "description": "Коректний опис для перевірки максимальної довжини title.",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-02 description із 4001 символу — errors.description
+### Довгий рядок тут не дублюється.
+### Покрито автотестом:
+### Create_WithDescriptionLongerThan4000Characters_Returns400
+
+
+### T-02 occurredAtUtc відсутній — errors.occurredAtUtc
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "T-02 без дати",
   "description": "Коректний опис для перевірки обов’язкової дати.",
   "severity": "Low"
 }
 
-### POST: дата далеко в майбутньому — очікується 400
+
+### T-02 дата понад +5 хв у майбутньому — errors.occurredAtUtc
 POST {{host}}/api/incidents
 Content-Type: application/json
 Accept: application/problem+json
 
 {
-  "title": "Перевірка майбутньої дати",
+  "title": "T-02 майбутня дата",
   "description": "Коректний опис для перевірки майбутньої дати.",
   "severity": "Low",
   "occurredAtUtc": "2030-01-01T00:00:00Z"
 }
 
-### POST: High і 39 символів після Trim — очікується 400
-POST {{host}}/api/incidents
-Content-Type: application/json
-Accept: application/problem+json
 
-{
-  "title": "High з коротким описом",
-  "description": "  123456789012345678901234567890123456789  ",
-  "severity": "High",
-  "occurredAtUtc": "2026-08-10T10:00:00Z"
-}
 
-### POST: High і рівно 40 символів після Trim — очікується 201
-POST {{host}}/api/incidents
-Content-Type: application/json
-Accept: application/json
+# =====================================================================
+# T-03
+# Предметний конфлікт
+#
+# Блокувальні статуси:
+# New / Triaged / InProgress / Resolved.
+#
+# Closed не блокує.
+# Порівняння title — після Trim(), case-sensitive.
+# =====================================================================
 
-{
-  "title": "High з описом у сорок символів",
-  "description": "  1234567890123456789012345678901234567890  ",
-  "severity": "High",
-  "occurredAtUtc": "2026-08-10T10:00:00Z"
-}
-
-### POST: seed має такий самий title у Triaged — очікується 409
+### T-03 seed Triaged із тим самим Trim()-title — 409
 POST {{host}}/api/incidents
 Content-Type: application/json
 Accept: application/problem+json
@@ -108,5 +299,442 @@ Accept: application/problem+json
   "title": "  Підозрілий лист із вкладенням  ",
   "description": "Повторна спроба створити інцидент із наявною активною назвою.",
   "severity": "Medium",
-  "occurredAtUtc": "2026-08-10T10:00:00Z"
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
 }
+
+
+### T-03 пара 201 -> 409, крок 1 — 201 [СТВОРЮЄ]
+### Перед повторним запуском змінити суфікс або зробити reset.
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "Regression-manual-0001",
+  "description": "Регресійний сценарій: опис, що не дублює заголовок.",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-03 пара 201 -> 409, крок 2 — 409
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "  Regression-manual-0001  ",
+  "description": "Повторна спроба з тим самим нормалізованим заголовком.",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-03 той самий title, інший регістр — 201 [СТВОРЮЄ]
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "підозрілий лист із вкладенням",
+  "description": "Той самий заголовок, але з іншим регістром, тому конфлікту немає.",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-03 Closed не блокує
+### Надійно покрито автоматичним тестом:
+### Create_WithTitleMatchingClosedIncident_Returns201
+
+
+
+# =====================================================================
+# T-04
+# Позитивна регресія пошуку [FIXED]
+# =====================================================================
+
+### T-04 A — звичайний USB search
+### Очікується:
+### 200
+### тільки seed ...0005
+GET {{host}}/api/incidents/search?q=USB
+Accept: application/json
+
+
+### T-04 B — гарантовано відсутній текст
+### Очікується:
+### 200
+### []
+GET {{host}}/api/incidents/search?q=zz-no-match
+Accept: application/json
+
+
+### T-04 D — O'Brien
+### Очікується:
+### 200
+### тільки seed ...0004
+GET {{host}}/api/incidents/search?q=O%27Brien
+Accept: application/json
+
+
+### T-04 легітимний апостроф U+0027 у "комп'ютерного"
+### Очікується:
+### 200
+### тільки seed ...0003
+GET {{host}}/api/incidents/search?q=%D0%BA%D0%BE%D0%BC%D0%BF%27%D1%8E%D1%82%D0%B5%D1%80%D0%BD%D0%BE%D0%B3%D0%BE
+Accept: application/json
+
+
+### T-04 literal %
+### % клієнта не повинен працювати як LIKE wildcard.
+### Очікується:
+### 200
+### []
+GET {{host}}/api/incidents/search?q=%25
+Accept: application/json
+
+
+
+# =====================================================================
+# S-01 ... S-05
+# Сортування fixed search
+# =====================================================================
+
+### S-01 без sortBy
+### createdAtUtc DESC, потім Id
+###
+### Очікуваний порядок:
+### ...0004
+### ...0005
+### ...0003
+### ...0002
+### ...0001
+GET {{host}}/api/incidents/search?q=
+Accept: application/json
+
+
+### S-02 sortBy=createdAtUtc
+### Очікуваний порядок:
+### ...0004
+### ...0005
+### ...0003
+### ...0002
+### ...0001
+GET {{host}}/api/incidents/search?q=&sortBy=createdAtUtc
+Accept: application/json
+
+
+### S-03 sortBy=severity
+### Critical -> High -> Medium -> Low
+### потім Id.
+###
+### У поточному seed:
+### ...0002 High
+### ...0001 Medium
+### ...0003 Low
+### ...0004 Low
+### ...0005 Low
+GET {{host}}/api/incidents/search?q=&sortBy=severity
+Accept: application/json
+
+
+### S-04 sortBy=status
+### New -> Triaged -> InProgress -> Resolved -> Closed
+### потім Id.
+###
+### У поточному seed:
+### ...0003 New
+### ...0004 New
+### ...0005 New
+### ...0001 Triaged
+### ...0002 InProgress
+GET {{host}}/api/incidents/search?q=&sortBy=status
+Accept: application/json
+
+
+### S-05 невідомий sortBy
+### Очікується:
+### 400 application/problem+json
+### errors.sortBy
+### "Допустимі значення: createdAtUtc, severity, status."
+GET {{host}}/api/incidents/search?q=USB&sortBy=price
+Accept: application/problem+json
+
+
+
+# =====================================================================
+# T-05
+# Allowlist sortBy
+# =====================================================================
+
+### T-05 createdAtUtc дозволений — 200
+GET {{host}}/api/incidents/search?q=USB&sortBy=createdAtUtc
+Accept: application/json
+
+
+### T-05 severity дозволений — 200
+GET {{host}}/api/incidents/search?q=навчальн&sortBy=severity
+Accept: application/json
+
+
+### T-05 status дозволений — 200
+GET {{host}}/api/incidents/search?q=навчальн&sortBy=status
+Accept: application/json
+
+
+
+# =====================================================================
+# T-06
+# Ресурс не знайдено
+# =====================================================================
+
+### T-06 відсутній id — 404 Problem Details
+GET {{host}}/api/incidents/99999999-9999-9999-9999-999999999999
+Accept: application/problem+json
+
+
+
+# =====================================================================
+# T-09
+# Cross-field перевірка 2-A
+#
+# High/Critical:
+# description після Trim() має містити >= 40 символів.
+# =====================================================================
+
+### T-09 High, 39 символів після Trim — 400
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "T-09 High 39 символів",
+  "description": "  123456789012345678901234567890123456789  ",
+  "severity": "High",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-09 High, 40 символів після Trim — 201 [СТВОРЮЄ]
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "T-09 High 40 символів",
+  "description": "  1234567890123456789012345678901234567890  ",
+  "severity": "High",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-09 Critical, 39 символів після Trim — 400
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "T-09 Critical 39 символів",
+  "description": "  123456789012345678901234567890123456789  ",
+  "severity": "Critical",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-09 Critical, 40 символів після Trim — 201 [СТВОРЮЄ]
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "T-09 Critical 40 символів",
+  "description": "  1234567890123456789012345678901234567890  ",
+  "severity": "Critical",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+
+# =====================================================================
+# T-10
+# Додаткова нетривіальна предметна перевірка
+#
+# Правило:
+# description після Trim()
+# не може повністю дорівнювати title після Trim().
+#
+# Порушення -> 400 + errors.description.
+# Допустимий стан -> 201.
+# =====================================================================
+
+### T-10 negative
+### description == title після Trim — 400
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/problem+json
+
+{
+  "title": "  T-10 однаковий текст  ",
+  "description": "  T-10 однаковий текст  ",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### T-10 positive — 201 [СТВОРЮЄ]
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "T-10 опис з додатковими фактами",
+  "description": "Опис пояснює обставини інциденту та містить додаткові факти.",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+
+# =====================================================================
+# S-01 / S-02
+# SQL injection: vulnerable state та fixed retest
+#
+# Використовується ТОЙ САМИЙ контрольований read-only input.
+#
+# q = zz-no-match' OR TRUE -- [пробіл наприкінці]
+#
+# [VULN]
+# vulnerable commit:
+# небажане розширення вибірки.
+#
+# [FIXED]
+# fixed commit:
+# 200 та точна порожня множина [].
+#
+# Не додавати інші SQL statements.
+# =====================================================================
+
+### S-01 / S-02 негативний контроль
+### q = zz-no-match
+### Очікується []
+GET {{host}}/api/incidents/search?q=zz-no-match
+Accept: application/json
+
+
+### S-01 / S-02 контрольований read-only input
+###
+### [VULN]
+### зафіксувати фактичний status,
+### кількість та ID повернених записів.
+###
+### [FIXED]
+### 200 і []
+###
+### q = zz-no-match' OR TRUE -- [пробіл наприкінці]
+GET {{host}}/api/incidents/search?q=zz-no-match%27%20OR%20TRUE%20--%20
+Accept: application/json
+
+
+
+# =====================================================================
+# A-01
+# Повний огляд data-access points
+#
+# Це не HTTP-запити.
+# Виконувати з кореня репозиторію.
+# =====================================================================
+
+### A-01 raw SQL / ORDER BY scan
+# PowerShell / git:
+#
+# git grep -n -e FromSqlRaw -e ExecuteSqlRaw -e "ORDER BY" -- src tests
+
+
+### A-01 interpolated SELECT scan
+#
+# git grep -n -F '$"SELECT' -- src tests
+
+
+### A-01 concatenation scan
+#
+# git grep -n -F '+ query' -- src tests
+
+
+### A-01 для повного рівня
+### додатково переглянути всі точки доступу до БД:
+###
+### - IncidentQueries
+### - Lab02Endpoints
+### - DatabaseBootstrap
+### - DbSeeder
+### - Lab02Seed
+### - тести, які напряму використовують DbContext
+###
+### Для кожної точки в звіті:
+### файл / метод
+### категорія
+### джерело значень
+### висновок щодо SQL injection.
+
+
+
+# =====================================================================
+# A-02
+# Mass assignment / overposting
+#
+# Клієнт навмисно надсилає:
+# id
+# ownerUserId
+# status
+# createdAtUtc
+#
+# Вони server-managed і не повинні керувати entity.
+#
+# Очікується:
+#
+# response:
+# - 201
+# - id != 11111111-...
+# - status = New
+# - createdAtUtc встановлений сервером
+# - ownerUserId відсутній
+#
+# database:
+# - OwnerUserId = Alice
+# - Status = New
+# - client supplied id відсутній
+#
+# GET details:
+# - status = New
+# - ownerDisplayName = "Аліса Коваль"
+# - ownerUserId не розкривається
+# =====================================================================
+
+### A-02 POST із server-managed полями — 201 [СТВОРЮЄ]
+POST {{host}}/api/incidents
+Content-Type: application/json
+Accept: application/json
+
+{
+  "id": "11111111-1111-1111-1111-111111111111",
+  "ownerUserId": "22222222-2222-2222-2222-222222222222",
+  "status": "Closed",
+  "createdAtUtc": "2020-01-01T00:00:00Z",
+  "title": "MassAssign-manual-0001",
+  "description": "Опис для перевірки mass assignment на створенні.",
+  "severity": "Low",
+  "occurredAtUtc": "2026-09-30T08:00:00Z"
+}
+
+
+### A-02 GET створеного запису
+### Підставити id, отриманий із POST вище.
+###
+### Очікується:
+### status = "New"
+### ownerDisplayName = "Аліса Коваль"
+### ownerUserId відсутній
+#
+# GET {{host}}/api/incidents/<id-зі-відповіді>
+# Accept: application/json

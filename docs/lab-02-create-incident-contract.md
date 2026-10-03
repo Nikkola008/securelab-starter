@@ -9,6 +9,7 @@
 | `severity` | Обов’язкове одне зі значень `Low`, `Medium`, `High`, `Critical`. Рядок `"7"` не допускається. |
 | `occurredAtUtc` | Обов’язкове. Не може бути пізніше за UTC-час сервера більш ніж на п’ять хвилин. |
 | Cross-field правило | Для `High` або `Critical` нормалізований `description` містить щонайменше 40 символів. |
+| Додаткове правило T-10 | Після `Trim()` `description` не може повністю дублювати `title`: опис інциденту має додавати відомості. Порушення повертає `400` з ключем `description`. |
 | Предметний конфлікт | `title.Trim()` не може повторювати наявний title з урахуванням регістру, якщо його статус `New`, `Triaged`, `InProgress` або `Resolved`. Збіг тільки з `Closed` не блокує створення. |
 | Серверні поля | Клієнт не передає `id`, `ownerUserId`, `status`, `createdAtUtc` або `updatedAtUtc`. Їх установлює сервер. |
 | Успіх | `201 Created`, `application/json`, тіло `CreatedIncidentResponse`: `id`, `title`, `severity`, `status`, `occurredAtUtc`, `createdAtUtc`. |
@@ -26,4 +27,4 @@
 
 Зміна `<select>` у браузері не є захистом: клієнтський код можна обійти через DevTools, curl або інший HTTP-клієнт. Тому перевірка виконується на сервері. `OwnerUserId` і `status` не є властивостями `CreateIncidentRequest`, тож binding не встановлює їх у модель створення; сервер задає owner і `New` самостійно.
 
-Автоматизований доказ: `IncidentCreationContractTests` перевіряє числовий severity, 400 Problem Details, межі 39/40 символів, 409 для активного seed-дубліката, ігнорування надісланих `ownerUserId`/`status` і дозволене повторення title після `Closed`.
+Автоматизований доказ: `IncidentCreationContractTests` перевіряє числовий severity, 400 Problem Details, межі 39/40 символів, 409 для активного seed-дубліката, ігнорування надісланих `ownerUserId`/`status`, дозволене повторення title після `Closed` і негативний/позитивний T-10 сценарії для description, який дублює або доповнює title.

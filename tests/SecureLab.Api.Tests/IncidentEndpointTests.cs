@@ -29,6 +29,12 @@ public sealed class IncidentEndpointTests(SecureLabApiFactory factory)
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Інцидент не знайдено", body);
+        Assert.DoesNotContain("Npgsql", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("stack trace", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("connection string", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

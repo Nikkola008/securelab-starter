@@ -46,7 +46,10 @@ public static class IncidentEndpoints
         var incident = await incidentQueries.GetDetailsAsync(id, cancellationToken);
         return incident is not null
             ? Results.Ok(incident)
-            : Results.NotFound();
+            : Results.Problem(
+                title: "Інцидент не знайдено",
+                detail: "Запитаний інцидент відсутній.",
+                statusCode: StatusCodes.Status404NotFound);
     }
 
     private static async Task<IResult> GetSeveritySummaryAsync(

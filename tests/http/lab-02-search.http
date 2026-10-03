@@ -1,15 +1,73 @@
 @baseUrl = http://localhost:5080
 
-### Етап 3: звичайний пошук на vulnerable commit — зафіксувати status і кількість записів
+
+### A — нормальний пошук
+### Очікується: 200 OK, рівно USB seed-запис ...0005
 GET {{baseUrl}}/api/incidents/search?q=USB
 Accept: application/json
 
-### Етап 3: єдиний контрольний read-only сценарій — очікується небажане розширення вибірки
-### q = zz-no-match' OR TRUE -- [trailing space]
+
+### B — значення, якого немає
+### Очікується: 200 OK, []
+GET {{baseUrl}}/api/incidents/search?q=zz-no-match
+Accept: application/json
+
+
+### C — read-only security retest S-02
+### Очікується після fix: 200 OK, []
 GET {{baseUrl}}/api/incidents/search?q=zz-no-match%27%20OR%20TRUE%20--%20
 Accept: application/json
 
-### Регресія для етапу 4: апостроф U+0027 у слові "комп'ютерного"
-### На vulnerable commit цей запит демонструє defect; після fix має повернути відповідний seed-запис.
+
+### D — легітимний апостроф: O'Brien
+### Очікується після fix: 200 OK, запис "O'Brien classroom report"
+GET {{baseUrl}}/api/incidents/search?q=O%27Brien
+Accept: application/json
+
+
+### T-04 — легітимний апостроф у слові "комп'ютерного"
+### Очікується: 200 OK, seed-запис ...0003
 GET {{baseUrl}}/api/incidents/search?q=%D0%BA%D0%BE%D0%BC%D0%BF%27%D1%8E%D1%82%D0%B5%D1%80%D0%BD%D0%BE%D0%B3%D0%BE
 Accept: application/json
+
+
+### Literal LIKE — символ % має шукатися буквально
+### Очікується: 200 OK, []
+GET {{baseUrl}}/api/incidents/search?q=%25
+Accept: application/json
+
+
+### S1 — default sortBy
+### Очікується порядок:
+### 0004 -> 0005 -> 0003 -> 0002 -> 0001
+GET {{baseUrl}}/api/incidents/search
+Accept: application/json
+
+
+### S2 — sortBy=createdAtUtc
+### Очікується той самий порядок:
+### 0004 -> 0005 -> 0003 -> 0002 -> 0001
+GET {{baseUrl}}/api/incidents/search?sortBy=createdAtUtc
+Accept: application/json
+
+
+### S3 — sortBy=severity
+### Очікується:
+### 0002 High -> 0001 Medium -> 0003 Low -> 0004 Low -> 0005 Low
+GET {{baseUrl}}/api/incidents/search?sortBy=severity
+Accept: application/json
+
+
+### S4 — sortBy=status
+### Очікується:
+### 0003 New -> 0004 New -> 0005 New -> 0001 Triaged -> 0002 InProgress
+GET {{baseUrl}}/api/incidents/search?sortBy=status
+Accept: application/json
+
+
+### S5 / T-05 — невідомий sortBy
+### Очікується: 400 Bad Request,
+### Content-Type: application/problem+json,
+### errors.sortBy
+GET {{baseUrl}}/api/incidents/search?sortBy=price
+Accept: application/problem+json
